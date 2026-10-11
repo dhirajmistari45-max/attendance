@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Attendance System</title>
+
+<!-- ============ EXTERNAL LIBRARIES ============ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/dist/face-api.min.js"></script>
+
+<style>
+:root{
+  --bg:#0f172a; --bg2:#1e293b; --card:#1e293b; --card2:#273449;
+  --line:#334155; --text:#e2e8f0; --muted:#94a3b8;
+  --accent:#6366f1; --accent2:#818cf8; --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --cyan:#06b6d4;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;background:
+  radial-gradient(1200px 600px at 10% -10%, #1e293b 0%, transparent 50%),
+  radial-gradient(1000px 500px at 110% 10%, #312e81 0%, transparent 45%), var(--bg);
+  color:var(--text);min-height:100vh;line-height:1.5}
+a{color:var(--accent2)}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
+.hidden{display:none !important}
+
+/* ---------- Config banner ---------- */
+#configBanner{background:#7f1d1d;color:#fff;padding:10px 16px;text-align:center;font-size:14px}
+
+/* ---------- Buttons ---------- */
+.btn{border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:600;
+  background:var(--accent);color:#fff;transition:.15s;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--accent2)}
+.btn:active{transform:translateY(1px)}
+.btn.sec{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.btn.sec:hover{background:#31425e}
+.btn.green{background:var(--green)} .btn.red{background:var(--red)} .btn.amber{background:var(--amber);color:#111}
+.btn.cyan{background:var(--cyan);color:#06283d}
+.btn.sm{padding:6px 10px;font-size:12px;border-radius:8px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ---------- Login ---------- */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.auth-card{width:100%;max-width:420px;background:var(--card);border:1px solid var(--line);
+  border-radius:20px;padding:34px 30px;box-shadow:0 30px 60px rgba(0,0,0,.4)}
+.brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:6px}
+.brand .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--cyan));
+  display:grid;place-items:center;font-size:24px}
+.brand h1{font-size:20px}
+.auth-sub{text-align:center;color:var(--muted);font-size:13px;margin-bottom:22px}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:20px}
+.seg button{flex:1;border:none;background:transparent;color:var(--muted);padding:9px;border-radius:9px;font-weight:600;font-size:14px}
+.seg button.on{background:var(--accent);color:#fff}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:6px;font-weight:600}
+.field input,.field select{width:100%;padding:11px 13px;background:var(--bg);border:1px solid var(--line);
+  border-radius:10px;color:var(--text);font-size:14px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+.msg{font-size:13px;padding:10px 12px;border-radius:9px;margin-bottom:12px}
+.msg.err{background:#451a1a;color:#fca5a5;border:1px solid #7f1d1d}
+.msg.ok{background:#14331f;color:#86efac;border:1px solid #166534}
+
+/* ---------- App shell ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;
+  background:rgba(15,23,42,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+.topbar .left{display:flex;align-items:center;gap:12px}
+.topbar .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--cyan));display:grid;place-items:center;font-size:20px}
+.topbar h2{font-size:16px}
+.topbar .who{font-size:12px;color:var(--muted)}
+.topbar .right{display:flex;align-items:center;gap:10px}
+.pill{font-size:11px;padding:3px 10px;border-radius:999px;background:var(--card2);border:1px solid var(--line);color:var(--muted)}
+
+.tabs{display:flex;gap:6px;padding:12px 22px 0;flex-wrap:wrap;border-bottom:1px solid var(--line);background:rgba(30,41,59,.4)}
+.tabs button{border:none;background:transparent;color:var(--muted);padding:11px 16px;font-weight:600;font-size:14px;
+  border-bottom:3px solid transparent;border-radius:8px 8px 0 0}
+.tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+.tabs button:hover{color:var(--text);background:rgba(99,102,241,.08)}
+
+.container{padding:22px;max-width:1200px;margin:0 auto}
+.view{animation:fade .25s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- Cards / grid ---------- */
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,1fr)} .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+@media(max-width:900px){.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2{grid-template-columns:1fr}}
+@media(max-width:560px){.g4{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+.card h3{font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.stat{position:relative;overflow:hidden}
+.stat .num{font-size:30px;font-weight:800}
+.stat .lbl{font-size:12.5px;color:var(--muted);margin-top:2px}
+.stat .ic{position:absolute;right:14px;top:14px;font-size:26px;opacity:.5}
+.stat.good{border-left:4px solid var(--green)} .stat.warn{border-left:4px solid var(--amber)}
+.stat.bad{border-left:4px solid var(--red)} .stat.info{border-left:4px solid var(--cyan)}
+.stat.acc{border-left:4px solid var(--accent)}
+
+/* ---------- Table ---------- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:11px 13px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:var(--card2);color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
+tbody tr:hover{background:rgba(99,102,241,.06)}
+.badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px}
+.badge.present{background:#14331f;color:#86efac} .badge.late{background:#422006;color:#fcd34d}
+.badge.absent{background:#450a0a;color:#fca5a5} .badge.yes{background:#0e2a3a;color:#67e8f9} .badge.no{background:#3a2a0e;color:#fcd34d}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar .spacer{flex:1}
+.search{padding:9px 12px;background:var(--bg);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:13px;min-width:160px}
+
+/* ---------- Modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:18px;width:100%;max-width:520px;max-height:92vh;overflow:auto}
+.modal .head{display:flex;justify-content:space-between;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line)}
+.modal .head h3{font-size:16px}
+.modal .body{padding:20px}
+.modal .foot{padding:16px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+.x{background:none;border:none;color:var(--muted);font-size:22px;line-height:1}
+
+/* ---------- Camera / scanner ---------- */
+.scanbox{max-width:420px;margin:0 auto}
+#qrReader,#sessionReader{width:100%;border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.videowrap{position:relative;max-width:420px;margin:0 auto}
+.videowrap video,.videowrap canvas{width:100%;border-radius:12px;background:#000}
+.videowrap canvas{position:absolute;left:0;top:0}
+.scanlog{margin-top:14px;max-height:220px;overflow:auto;font-size:13px}
+.scanlog .line{display:flex;justify-content:space-between;padding:8px 12px;border:1px solid var(--line);border-radius:9px;margin-bottom:6px;background:var(--bg)}
+
+/* QR card preview */
+.qrcard{background:#fff;color:#111;border-radius:14px;padding:18px;width:260px;text-align:center;margin:0 auto}
+.qrcard .qimg{display:flex;justify-content:center;margin:10px 0}
+.qrcard h4{margin:4px 0;font-size:16px}
+.qrcard .small{font-size:12px;color:#555}
+.sessionQR{background:#fff;padding:20px;border-radius:14px;display:inline-block}
+
+.note{font-size:12.5px;color:var(--muted);margin-top:8px}
+.center{text-align:center}
+.flexrow{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.toast-wrap{position:fixed;right:18px;bottom:18px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 16px;border-radius:10px;font-size:14px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:fade .2s}
+.toast.ok{background:var(--green);color:#052e16} .toast.warn{background:var(--amber);color:#3b2f00}
+.toast.err{background:var(--red);color:#fff} .toast.info{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.progress{height:8px;background:var(--bg);border-radius:999px;overflow:hidden;margin-top:6px}
+.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--cyan))}
+.spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.kpi-row{display:flex;gap:18px;flex-wrap:wrap}
+.ring{--p:0;width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--green) calc(var(--p)*1%),var(--line) 0);display:grid;place-items:center}
+.ring .inner{width:92px;height:92px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center}
+.ring .inner b{font-size:24px}.ring .inner span{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div id="configBanner" class="hidden">
+  ⚠️ Backend not configured — paste your Google Apps Script Web App URL into <b>CONFIG.url</b> at the top of this file (see SETUP_GUIDE).
+</div>
+
+<!-- ================= LOGIN ================= -->
+<div id="loginScreen" class="auth-wrap">
+  <div class="auth-card">
+    <div class="brand"><div class="logo">🎓</div><h1 id="brandName">Smart Attendance</h1></div>
+    <div class="auth-sub">QR Code &amp; Face Recognition Attendance</div>
+    <div class="seg">
+      <button id="segStudent" class="on" onclick="setRole('student')">Student</button>
+      <button id="segAdmin" onclick="setRole('admin')">Admin</button>
+    </div>
+    <div id="loginMsg"></div>
+    <div class="field">
+      <label id="idLabel">Student ID or Email</label>
+      <input id="loginId" placeholder="STU0001 or you@college.edu" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn" style="width:100%;justify-content:center" id="loginBtn" onclick="doLogin()">Sign In</button>
+    <div class="note center" style="margin-top:14px">Default admin — <b>admin@college.edu</b> / <b>admin123</b></div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="hidden">
+  <div class="topbar">
+    <div class="left">
+      <div class="logo">🎓</div>
+      <div><h2 id="appTitle">Smart Attendance</h2><div class="who" id="appWho"></div></div>
+    </div>
+    <div class="right">
+      <span class="pill" id="rolePill"></span>
+      <button class="btn sec sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Admin tabs -->
+  <div class="tabs" id="adminTabs">
+    <button class="on" data-v="dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
+    <button data-v="students" onclick="showTab('students')">👥 Students</button>
+    <button data-v="kiosk" onclick="showTab('kiosk')">📷 Scan Kiosk</button>
+    <button data-v="sessions" onclick="showTab('sessions')">🔖 Sessions</button>
+    <button data-v="attendance" onclick="showTab('attendance')">🗓️ Attendance</button>
+    <button data-v="settings" onclick="showTab('settings')">⚙️ Settings</button>
+  </div>
+  <!-- Student tabs -->
+  <div class="tabs hidden" id="studentTabs">
+    <button class="on" data-v="s_overview" onclick="showTab('s_overview')">📊 My Attendance</button>
+    <button data-v="s_scan" onclick="showTab('s_scan')">📷 Scan Session QR</button>
+    <button data-v="s_records" onclick="showTab('s_records')">🗓️ My Records</button>
+    <button data-v="s_settings" onclick="showTab('s_settings')">⚙️ Account</button>
+  </div>
+
+  <div class="container">
+    <!-- ======= ADMIN: DASHBOARD ======= -->
+    <div id="v_dashboard" class="view">
+      <div class="grid g4" id="statCards"></div>
+      <div class="grid g2" style="margin-top:16px">
+        <div class="card">
+          <h3>📈 Today's Attendance Breakdown</h3>
+          <div id="todayBreak"></div>
+        </div>
+        <div class="card">
+          <h3>🕒 Latest Scans</h3>
+          <div id="latestScans" class="scanlog"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= ADMIN: STUDENTS ======= -->
+    <div id="v_students" class="view hidden">
+      <div class="toolbar">
+        <input class="search" id="studentSearch" placeholder="Search name / ID / email" oninput="renderStudents()" />
+        <div class="spacer"></div>
+        <button class="btn green" onclick="openStudentModal()">＋ Add Student</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Face</th><th>QR Card</th><th>Actions</th></tr></thead>
+          <tbody id="studentsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ======= ADMIN: KIOSK ======= -->
+    <div id="v_kiosk" class="view hidden">
+      <div class="card">
+        <div class="seg" style="max-width:360px;margin:0 auto 18px">
+          <button id="kioskQrBtn" class="on" onclick="setKioskMode('qr')">QR Card</button>
+          <button id="kioskFaceBtn" onclick="setKioskMode('face')">Face Recognition</button>
+        </div>
+
+        <div id="kioskQr" class="scanbox">
+          <div id="qrReader"></div>
+          <div class="center" style="margin-top:12px">
+            <button class="btn" id="qrStartBtn" onclick="startQrKiosk()">▶ Start Scanner</button>
+            <button class="btn sec hidden" id="qrStopBtn" onclick="stopQrKiosk()">⏹ Stop</button>
+          </div>
+          <p class="note center">Point a student's QR ID card at the camera to mark them present.</p>
+        </div>
+
+        <div id="kioskFace" class="scanbox hidden">
+          <div class="videowrap">
+            <video id="faceVideo" autoplay muted playsinline></video>
+            <canvas id="faceCanvas"></canvas>
+          </div>
+          <div class="center" style="margin-top:12px">
+            <button class="btn" id="faceStartBtn" onclick="startFaceKiosk()">▶ Start Face Scan</button>
+            <button class="btn sec hidden" id="faceStopBtn" onclick="stopFaceKiosk()">⏹ Stop</button>
+          </div>
+          <p class="note center" id="faceStatus">Loading face models the first time may take a few seconds…</p>
+        </div>
+
+        <div class="scanlog" id="kioskLog" style="margin-top:18px"></div>
+      </div>
+    </div>
+
+    <!-- ======= ADMIN: SESSIONS ======= -->
+    <div id="v_sessions" class="view hidden">
+      <div class="grid g2">
+        <div class="card">
+          <h3>➕ Create Live Session</h3>
+          <div class="field"><label>Class / Subject name</label><input id="sessClass" placeholder="e.g. CS101 — Data Structures" /></div>
+          <div class="grid g2">
+            <div class="field"><label>Mark Late after (HH:mm)</label><input id="sessLate" placeholder="09:15" /></div>
+            <div class="field"><label>Open for (minutes)</label><input id="sessDur" type="number" value="60" /></div>
+          </div>
+          <button class="btn green" onclick="createSession()">Create &amp; Show QR</button>
+          <p class="note">Students scan the displayed QR from their own phones (logged in) to self-mark attendance.</p>
+        </div>
+        <div class="card center" id="sessionQrCard">
+          <h3 style="justify-content:center">📱 Session QR</h3>
+          <div id="noSession" class="note">No active session QR. Create one to display it here.</div>
+          <div id="sessionQrBox" class="hidden">
+            <div class="sessionQR"><div id="sessionQR"></div></div>
+            <div id="sessionQrMeta" style="margin-top:12px"></div>
+            <button class="btn sec sm" style="margin-top:10px" onclick="fullscreenSessionQR()">⛶ Present Fullscreen</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>🔖 Sessions</h3>
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th>Session</th><th>Class</th><th>Date</th><th>Start</th><th>Late After</th><th>Status</th><th></th></tr></thead>
+            <tbody id="sessionsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= ADMIN: ATTENDANCE ======= -->
+    <div id="v_attendance" class="view hidden">
+      <div class="toolbar">
+        <div class="field" style="margin:0"><label style="margin-bottom:3px">Date filter</label>
+          <input type="date" id="attDate" class="search" onchange="loadAttendance()" /></div>
+        <input class="search" id="attSearch" placeholder="Search name / ID" oninput="renderAttendance()" style="align-self:flex-end" />
+        <div class="spacer"></div>
+        <button class="btn sec" onclick="exportAttendanceCSV()">⬇ CSV</button>
+        <button class="btn cyan" onclick="exportAttendancePDF()">⬇ PDF Report</button>
+      </div>
+      <div class="grid g4" id="attSummary" style="margin-bottom:14px"></div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Date</th><th>Time</th><th>ID</th><th>Name</th><th>Status</th><th>Method</th><th>Session</th></tr></thead>
+          <tbody id="attendanceBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ======= ADMIN: SETTINGS ======= -->
+    <div id="v_settings" class="view hidden">
+      <div class="grid g2">
+        <div class="card">
+          <h3>🏫 General</h3>
+          <div class="field"><label>College / Institution name</label><input id="setCollege" /></div>
+          <div class="field"><label>Default "Late" time (HH:mm)</label><input id="setLate" placeholder="09:15" /></div>
+          <div class="field"><label>Prevent duplicate marks per day</label>
+            <select id="setDedupe"><option value="true">Yes (one mark per day)</option><option value="false">No</option></select></div>
+          <button class="btn" onclick="saveSettings()">Save Settings</button>
+        </div>
+        <div class="card">
+          <h3>🔑 Change Admin Password</h3>
+          <div class="field"><label>New password</label><input id="admPass1" type="password" /></div>
+          <div class="field"><label>Confirm new password</label><input id="admPass2" type="password" /></div>
+          <button class="btn amber" onclick="changeMyPassword()">Update Password</button>
+          <p class="note">Face-recognition models and camera require the app to be opened over <b>HTTPS</b> (e.g. GitHub Pages).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= STUDENT: OVERVIEW ======= -->
+    <div id="v_s_overview" class="view hidden">
+      <div class="card">
+        <div class="kpi-row" style="align-items:center">
+          <div class="ring" id="attRing"><div class="inner"><div><b id="attPct">0%</b><br><span>Attendance</span></div></div></div>
+          <div class="grid g4" style="flex:1" id="sStatCards"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>🕒 Recent Activity</h3>
+        <div id="sRecent" class="scanlog"></div>
+      </div>
+    </div>
+
+    <!-- ======= STUDENT: SCAN SESSION ======= -->
+    <div id="v_s_scan" class="view hidden">
+      <div class="card scanbox">
+        <h3 style="justify-content:center">📷 Scan your class Session QR</h3>
+        <div id="sessionReader"></div>
+        <div class="center" style="margin-top:12px">
+          <button class="btn" id="sScanStart" onclick="startSessionScan()">▶ Start Scanner</button>
+          <button class="btn sec hidden" id="sScanStop" onclick="stopSessionScan()">⏹ Stop</button>
+        </div>
+        <div id="sScanResult" style="margin-top:14px"></div>
+        <p class="note center">Ask your teacher to display the session QR, then scan it here to mark yourself present.</p>
+      </div>
+    </div>
+
+    <!-- ======= STUDENT: RECORDS ======= -->
+    <div id="v_s_records" class="view hidden">
+      <div class="toolbar">
+        <div class="spacer"></div>
+        <button class="btn cyan" onclick="downloadMyReport()">⬇ Download My Report (PDF)</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Date</th><th>Time</th><th>Status</th><th>Method</th><th>Session</th></tr></thead>
+          <tbody id="sRecordsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ======= STUDENT: ACCOUNT ======= -->
+    <div id="v_s_settings" class="view hidden">
+      <div class="card" style="max-width:460px">
+        <h3>🔑 Change Password</h3>
+        <div class="field"><label>New password</label><input id="sPass1" type="password" /></div>
+        <div class="field"><label>Confirm new password</label><input id="sPass2" type="password" /></div>
+        <button class="btn amber" onclick="changeMyPassword()">Update Password</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ======= STUDENT ADD/EDIT MODAL ======= -->
+<div id="studentModal" class="overlay hidden">
+  <div class="modal">
+    <div class="head"><h3 id="studentModalTitle">Add Student</h3><button class="x" onclick="closeStudentModal()">×</button></div>
+    <div class="body">
+      <div id="studentModalMsg"></div>
+      <div class="grid g2">
+        <div class="field"><label>Student ID (blank = auto)</label><input id="smId" placeholder="auto" /></div>
+        <div class="field"><label>Full name *</label><input id="smName" /></div>
+      </div>
+      <div class="field"><label>Email *</label><input id="smEmail" type="email" /></div>
+      <div class="field"><label id="smPassLbl">Password *</label><input id="smPass" type="password" placeholder="Set a login password" /></div>
+
+      <div class="card" style="background:var(--bg);margin-top:4px">
+        <h3 style="margin-bottom:10px">😊 Face Enrollment (optional)</h3>
+        <div id="faceEnrollArea">
+          <div class="videowrap" style="max-width:300px">
+            <video id="enrollVideo" autoplay muted playsinline style="display:none"></video>
+            <canvas id="enrollCanvas" style="display:none"></canvas>
+          </div>
+          <div class="flexrow" style="margin-top:10px">
+            <button class="btn sec sm" id="enrollStart" onclick="startEnroll()">📷 Open Camera</button>
+            <button class="btn green sm hidden" id="enrollCapture" onclick="captureFace()">📸 Capture Face</button>
+            <button class="btn sec sm hidden" id="enrollStop" onclick="stopEnroll()">Close Camera</button>
+          </div>
+          <div id="enrollStatus" class="note"></div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="btn sec" onclick="closeStudentModal()">Cancel</button>
+      <button class="btn green" id="smSave" onclick="saveStudent()">Save Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======= QR CARD MODAL ======= -->
+<div id="qrCardModal" class="overlay hidden">
+  <div class="modal" style="max-width:360px">
+    <div class="head"><h3>QR ID Card</h3><button class="x" onclick="hide('qrCardModal')">×</button></div>
+    <div class="body center">
+      <div class="qrcard" id="qrCardPrintable">
+        <div style="font-weight:800;letter-spacing:.5px" id="qrCardCollege">COLLEGE</div>
+        <div class="qimg"><div id="qrCardCode"></div></div>
+        <h4 id="qrCardName"></h4>
+        <div class="small" id="qrCardId"></div>
+        <div class="small" id="qrCardEmail"></div>
+      </div>
+    </div>
+    <div class="foot"><button class="btn sec" onclick="hide('qrCardModal')">Close</button><button class="btn" onclick="printQrCard()">🖨 Print Card</button></div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+/* ============================================================
+   CONFIG — paste your deployed Apps Script Web App /exec URL
+   ============================================================ */
+var CONFIG = {
+  url: "https://script.google.com/macros/s/AKfycbxdtk55oav2nvPU-YzhaitL4xNaces8T-Yu74QDJoeiMtFAcotPoxi5tw4QvRu-quXs/exec",
+  faceModelUrl: "https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.13/model",
+  faceTolerance: 0.5,     // lower = stricter matching
+  scanCooldownMs: 4000    // ignore the same person for N ms after a successful scan
+};
+
+/* ============================================================
+   STATE
+   ============================================================ */
+var S = { token:null, role:null, name:null, email:null, studentId:null, loginRole:'student',
+          students:[], attendance:[], faceData:[], settings:{}, activeSession:null, faceModelsLoaded:false };
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+function $(id){return document.getElementById(id);}
+function show(id){$(id).classList.remove('hidden');}
+function hide(id){$(id).classList.add('hidden');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+
+async function sha256(str){
+  if(!(window.crypto&&crypto.subtle)) throw new Error('Secure context required (open over HTTPS or localhost).');
+  var buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(function(b){return ('0'+b.toString(16)).slice(-2);}).join('');
+}
+
+async function api(action,params){
+  params=params||{};
+  var body=JSON.stringify(Object.assign({action:action,token:S.token},params));
+  var res=await fetch(CONFIG.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body});
+  var text=await res.text();
+  var json; try{json=JSON.parse(text);}catch(e){throw new Error('Bad response from server: '+text.slice(0,120));}
+  return json;
+}
+
+function toast(msg,type){
+  type=type||'info';
+  var el=document.createElement('div');
+  el.className='toast '+type; el.textContent=msg;
+  $('toasts').appendChild(el);
+  setTimeout(function(){el.style.opacity='0';el.style.transition='.4s';setTimeout(function(){el.remove();},400);},3200);
+}
+
+function statusBadge(s){var c=s==='Present'?'present':(s==='Late'?'late':'absent');return '<span class="badge '+c+'">'+esc(s)+'</span>';}
+
+/* ============================================================
+   LOGIN
+   ============================================================ */
+function setRole(r){
+  S.loginRole=r;
+  $('segStudent').classList.toggle('on',r==='student');
+  $('segAdmin').classList.toggle('on',r==='admin');
+  $('idLabel').textContent = r==='student' ? 'Student ID or Email' : 'Admin Email';
+  $('loginId').placeholder = r==='student' ? 'STU0001 or you@college.edu' : 'admin@college.edu';
+}
+
+function loginMsg(t,cls){ $('loginMsg').innerHTML = t ? '<div class="msg '+cls+'">'+esc(t)+'</div>' : ''; }
+
+async function doLogin(){
+  var id=$('loginId').value.trim(), pass=$('loginPass').value;
+  if(!id||!pass){loginMsg('Enter your credentials','err');return;}
+  if(CONFIG.url.indexOf('PASTE_YOUR')===0){loginMsg('Backend URL not configured yet (see SETUP_GUIDE).','err');return;}
+  var btn=$('loginBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> Signing in…';
+  loginMsg('','');
+  try{
+    var hash=await sha256(pass);
+    var r = S.loginRole==='admin'
+      ? await api('adminLogin',{email:id,passwordHash:hash})
+      : await api('studentLogin',{identifier:id,passwordHash:hash});
+    if(!r.ok){loginMsg(r.error||'Login failed','err');return;}
+    S.token=r.token; S.role=r.role; S.name=r.name||(r.student&&r.student.name); S.email=r.email||(r.student&&r.student.email);
+    if(r.role==='student'){S.studentId=r.student.studentId;}
+    await enterApp();
+  }catch(e){loginMsg(e.message,'err');}
+  finally{btn.disabled=false; btn.innerHTML='Sign In';}
+}
+
+function logout(){
+  stopAllCameras();
+  S={token:null,role:null,name:null,email:null,studentId:null,loginRole:S.loginRole,students:[],attendance:[],faceData:[],settings:{},activeSession:null,faceModelsLoaded:S.faceModelsLoaded};
+  hide('app'); show('loginScreen'); $('loginPass').value='';
+}
+
+async function enterApp(){
+  hide('loginScreen'); show('app');
+  var st=await api('getSettings'); S.settings=(st&&st.settings)||{};
+  var college=S.settings.collegeName||'Smart Attendance';
+  $('appTitle').textContent=college; $('brandName').textContent=college;
+  $('appWho').textContent=(S.name||'')+(S.email?' · '+S.email:'');
+  $('rolePill').textContent=S.role.toUpperCase();
+  if(S.role==='admin'){ show('adminTabs'); hide('studentTabs'); showTab('dashboard'); }
+  else { hide('adminTabs'); show('studentTabs'); showTab('s_overview'); }
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function showTab(v){
+  document.querySelectorAll('.view').forEach(function(el){el.classList.add('hidden');});
+  show('v_'+v);
+  var tabset = S.role==='admin'?'adminTabs':'studentTabs';
+  document.querySelectorAll('#'+tabset+' button').forEach(function(b){b.classList.toggle('on',b.dataset.v===v);});
+  stopAllCameras();
+  if(v==='dashboard') loadDashboard();
+  if(v==='students') loadStudents();
+  if(v==='sessions') loadSessions();
+  if(v==='attendance'){ if(!$('attDate').value) $('attDate').value=todayStr(); loadAttendance(); }
+  if(v==='settings') loadSettingsForm();
+  if(v==='s_overview') loadStudentOverview();
+  if(v==='s_records') loadStudentRecords();
+}
+function todayStr(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+
+/* ============================================================
+   ADMIN DASHBOARD
+   ============================================================ */
+async function loadDashboard(){
+  var r=await api('getStats');
+  if(!r.ok){toast(r.error||'Failed to load stats','err');return;}
+  var s=r.stats;
+  $('statCards').innerHTML=[
+    card('acc','👥',s.totalStudents,'Total Students'),
+    card('good','✅',s.todayPresent,'Present Today'),
+    card('warn','⏰',s.todayLate,'Late Today'),
+    card('bad','❌',s.todayAbsent,'Absent Today')
+  ].join('')+[
+    card('info','😊',s.enrolledFaces,'Faces Enrolled'),
+    card('acc','📝',s.todayMarked,'Marked Today'),
+    card('info','🔖',s.activeSessions,'Active Sessions'),
+    card('good','📊',(s.totalStudents?Math.round(s.todayMarked/s.totalStudents*100):0)+'%','Today Coverage')
+  ].join('');
+  var total=s.todayMarked||0;
+  $('todayBreak').innerHTML=
+    bar('Present',s.todayPresent,s.totalStudents,'var(--green)')+
+    bar('Late',s.todayLate,s.totalStudents,'var(--amber)')+
+    bar('Absent',s.todayAbsent,s.totalStudents,'var(--red)');
+  var att=await api('getAllAttendance',{date:todayStr()});
+  var recs=(att.records||[]).slice(0,12);
+  $('latestScans').innerHTML = recs.length? recs.map(function(a){
+    return '<div class="line"><span>'+esc(a.name)+' <small style="color:var(--muted)">('+esc(a.studentId)+')</small></span><span>'+esc(a.time)+' '+statusBadge(a.status)+'</span></div>';
+  }).join('') : '<div class="note">No scans yet today.</div>';
+}
+function card(cls,ic,num,lbl){return '<div class="card stat '+cls+'"><div class="ic">'+ic+'</div><div class="num">'+num+'</div><div class="lbl">'+lbl+'</div></div>';}
+function bar(lbl,val,total,color){var pct=total?Math.round(val/total*100):0;return '<div style="margin-bottom:12px"><div class="flexrow" style="justify-content:space-between"><span>'+lbl+'</span><span>'+val+'</span></div><div class="progress"><i style="width:'+pct+'%;background:'+color+'"></i></div></div>';}
+
+/* ============================================================
+   ADMIN STUDENTS
+   ============================================================ */
+async function loadStudents(){
+  var r=await api('getStudents'); S.students=(r&&r.students)||[]; renderStudents();
+}
+function renderStudents(){
+  var q=($('studentSearch').value||'').toLowerCase();
+  var list=S.students.filter(function(s){return (s.name+' '+s.studentId+' '+s.email).toLowerCase().indexOf(q)>-1;});
+  $('studentsBody').innerHTML = list.length? list.map(function(s){
+    return '<tr>'+
+      '<td><b>'+esc(s.studentId)+'</b></td><td>'+esc(s.name)+'</td><td>'+esc(s.email)+'</td>'+
+      '<td>'+(s.hasFace?'<span class="badge yes">Enrolled</span>':'<span class="badge no">None</span>')+'</td>'+
+      '<td><button class="btn sec sm" onclick=\'showQrCard("'+encodeURIComponent(s.studentId)+'")\'>🔳 View</button></td>'+
+      '<td class="flexrow">'+
+        '<button class="btn sec sm" onclick=\'editStudent("'+encodeURIComponent(s.studentId)+'")\'>✏️</button>'+
+        '<button class="btn red sm" onclick=\'deleteStudent("'+encodeURIComponent(s.studentId)+'","'+esc(s.name)+'")\'>🗑</button>'+
+      '</td></tr>';
+  }).join('') : '<tr><td colspan="6" class="note" style="padding:20px">No students yet. Click “Add Student”.</td></tr>';
+}
+
+var editingId=null, enrollDescriptor=null;
+function openStudentModal(){
+  editingId=null; enrollDescriptor=null;
+  $('studentModalTitle').textContent='Add Student';
+  $('smId').value='';$('smName').value='';$('smEmail').value='';$('smPass').value='';
+  $('smId').disabled=false; $('smPassLbl').textContent='Password *';
+  $('studentModalMsg').innerHTML=''; $('enrollStatus').textContent=''; stopEnroll();
+  show('studentModal');
+}
+function editStudent(encId){
+  var id=decodeURIComponent(encId);
+  var s=S.students.find(function(x){return String(x.studentId)===id;}); if(!s)return;
+  editingId=id; enrollDescriptor=null;
+  $('studentModalTitle').textContent='Edit Student';
+  $('smId').value=s.studentId; $('smId').disabled=true;
+  $('smName').value=s.name; $('smEmail').value=s.email; $('smPass').value='';
+  $('smPassLbl').textContent='New Password (leave blank to keep)';
+  $('studentModalMsg').innerHTML = s.hasFace?'<div class="msg ok">Face already enrolled. Capture again to replace.</div>':'';
+  $('enrollStatus').textContent=''; stopEnroll(); show('studentModal');
+}
+function closeStudentModal(){stopEnroll(); hide('studentModal');}
+
+async function saveStudent(){
+  var name=$('smName').value.trim(), email=$('smEmail').value.trim(), pass=$('smPass').value, id=$('smId').value.trim();
+  var btn=$('smSave'); btn.disabled=true;
+  try{
+    if(editingId){
+      var upd={studentId:editingId}; if(name)upd.name=name; if(email)upd.email=email;
+      if(pass)upd.passwordHash=await sha256(pass);
+      var r=await api('updateStudent',upd);
+      if(!r.ok)throw new Error(r.error);
+      if(enrollDescriptor){ var f=await api('enrollFace',{studentId:editingId,faceDescriptor:enrollDescriptor}); if(!f.ok)throw new Error(f.error); }
+      toast('Student updated','ok');
+    }else{
+      if(!name||!email||!pass){$('studentModalMsg').innerHTML='<div class="msg err">Name, email and password are required.</div>';btn.disabled=false;return;}
+      var add={name:name,email:email,passwordHash:await sha256(pass)};
+      if(id)add.studentId=id; if(enrollDescriptor)add.faceDescriptor=enrollDescriptor;
+      var a=await api('addStudent',add); if(!a.ok)throw new Error(a.error);
+      toast('Student added: '+a.student.studentId,'ok');
+    }
+    closeStudentModal(); loadStudents();
+  }catch(e){$('studentModalMsg').innerHTML='<div class="msg err">'+esc(e.message)+'</div>';}
+  finally{btn.disabled=false;}
+}
+
+async function deleteStudent(encId,name){
+  var id=decodeURIComponent(encId);
+  if(!confirm('Delete '+name+'? This does not remove their past attendance rows.'))return;
+  var r=await api('deleteStudent',{studentId:id});
+  if(r.ok){toast('Deleted','ok');loadStudents();}else toast(r.error||'Failed','err');
+}
+
+/* ---------- QR card ---------- */
+function showQrCard(encId){
+  var id=decodeURIComponent(encId);
+  var s=S.students.find(function(x){return String(x.studentId)===id;}); if(!s)return;
+  $('qrCardCollege').textContent=(S.settings.collegeName||'COLLEGE').toUpperCase();
+  $('qrCardName').textContent=s.name; $('qrCardId').textContent='ID: '+s.studentId; $('qrCardEmail').textContent=s.email;
+  $('qrCardCode').innerHTML='';
+  new QRCode($('qrCardCode'),{text:s.qrToken,width:180,height:180,correctLevel:QRCode.CorrectLevel.M});
+  show('qrCardModal');
+}
+function printQrCard(){
+  var html=$('qrCardPrintable').outerHTML;
+  var w=window.open('','_blank');
+  w.document.write('<html><head><title>QR Card</title><style>body{font-family:sans-serif;display:grid;place-items:center;height:100vh}.qrcard{border:2px dashed #999;border-radius:14px;padding:20px;width:280px;text-align:center}.qimg{display:flex;justify-content:center;margin:10px 0}h4{margin:6px 0}.small{font-size:12px;color:#555}</style></head><body>'+html+'</body></html>');
+  w.document.close(); setTimeout(function(){w.print();},400);
+}
+
+/* ============================================================
+   FACE: model loading + enrollment + kiosk matching
+   ============================================================ */
+async function ensureFaceModels(statusEl){
+  if(S.faceModelsLoaded)return true;
+  if(typeof faceapi==='undefined'){ if(statusEl)statusEl.textContent='Face library still loading, try again in a moment…'; return false; }
+  try{
+    if(statusEl)statusEl.textContent='Loading face models…';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(CONFIG.faceModelUrl);
+    await faceapi.nets.faceLandmark68Net.loadFromUri(CONFIG.faceModelUrl);
+    await faceapi.nets.faceRecognitionNet.loadFromUri(CONFIG.faceModelUrl);
+    S.faceModelsLoaded=true;
+    if(statusEl)statusEl.textContent='Models ready.';
+    return true;
+  }catch(e){ if(statusEl)statusEl.textContent='Could not load face models: '+e.message; return false; }
+}
+
+var enrollStream=null;
+async function startEnroll(){
+  var ok=await ensureFaceModels($('enrollStatus')); if(!ok)return;
+  try{
+    enrollStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    var v=$('enrollVideo'); v.style.display='block'; v.srcObject=enrollStream;
+    $('enrollStart').classList.add('hidden'); $('enrollCapture').classList.remove('hidden'); $('enrollStop').classList.remove('hidden');
+    $('enrollStatus').textContent='Camera on. Center your face and capture.';
+  }catch(e){$('enrollStatus').textContent='Camera error: '+e.message;}
+}
+async function captureFace(){
+  var v=$('enrollVideo');
+  $('enrollStatus').innerHTML='<span class="spinner"></span> Detecting face…';
+  var det=await faceapi.detectSingleFace(v,new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+  if(!det){$('enrollStatus').textContent='No face detected. Improve lighting and try again.';return;}
+  enrollDescriptor=Array.from(det.descriptor);
+  $('enrollStatus').innerHTML='<span style="color:var(--green)">✔ Face captured.</span> It will be saved when you click Save Student.';
+}
+function stopEnroll(){
+  if(enrollStream){enrollStream.getTracks().forEach(function(t){t.stop();});enrollStream=null;}
+  var v=$('enrollVideo'); if(v){v.style.display='none';v.srcObject=null;}
+  $('enrollStart')&&$('enrollStart').classList.remove('hidden');
+  $('enrollCapture')&&$('enrollCapture').classList.add('hidden');
+  $('enrollStop')&&$('enrollStop').classList.add('hidden');
+}
+
+/* ============================================================
+   KIOSK — QR card scanner & Face recognition
+   ============================================================ */
+var qrScanner=null, faceStream=null, faceTimer=null, lastMark={};
+function setKioskMode(m){
+  stopQrKiosk(); stopFaceKiosk();
+  $('kioskQrBtn').classList.toggle('on',m==='qr');
+  $('kioskFaceBtn').classList.toggle('on',m==='face');
+  $('kioskQr').classList.toggle('hidden',m!=='qr');
+  $('kioskFace').classList.toggle('hidden',m!=='face');
+}
+function kioskLog(name,status,extra){
+  var cls=status==='Present'?'ok':(status==='Late'?'warn':(status==='info'?'info':'err'));
+  var el=document.createElement('div'); el.className='line';
+  el.innerHTML='<span>'+esc(name)+'</span><span>'+ (extra||statusBadge(status)) +' <small style="color:var(--muted)">'+new Date().toLocaleTimeString()+'</small></span>';
+  $('kioskLog').prepend(el);
+}
+function cooldownOk(key){var now=Date.now(); if(lastMark[key]&&now-lastMark[key]<CONFIG.scanCooldownMs)return false; lastMark[key]=now; return true;}
+
+/* ---- QR card ---- */
+async function startQrKiosk(){
+  try{
+    qrScanner=new Html5Qrcode('qrReader');
+    await qrScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},onQrCardScan,function(){});
+    $('qrStartBtn').classList.add('hidden'); $('qrStopBtn').classList.remove('hidden');
+  }catch(e){toast('Camera error: '+e.message,'err');}
+}
+async function onQrCardScan(text){
+  if(!cooldownOk('qr:'+text))return;
+  var r=await api('markAttendance',{method:'QR',qrToken:text});
+  if(!r.ok){kioskLog(text.slice(0,18)+'…','error',' <span class="badge absent">'+esc(r.error)+'</span>');toast(r.error,'err');return;}
+  if(r.duplicate){kioskLog(r.name||'—','info',' <span class="badge no">Already marked</span>');toast(r.message,'warn');return;}
+  kioskLog(r.name+' ('+r.studentId+')',r.status); toast(r.name+' — '+r.status,r.status==='Present'?'ok':'warn');
+}
+async function stopQrKiosk(){
+  if(qrScanner){try{await qrScanner.stop();qrScanner.clear();}catch(e){} qrScanner=null;}
+  $('qrStartBtn')&&$('qrStartBtn').classList.remove('hidden'); $('qrStopBtn')&&$('qrStopBtn').classList.add('hidden');
+}
+
+/* ---- Face ---- */
+async function startFaceKiosk(){
+  var ok=await ensureFaceModels($('faceStatus')); if(!ok)return;
+  var fd=await api('getFaceData'); S.faceData=(fd&&fd.faces)||[];
+  if(!S.faceData.length){$('faceStatus').textContent='No faces enrolled yet. Enroll students first.';return;}
+  try{
+    faceStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});
+    var v=$('faceVideo'); v.srcObject=faceStream;
+    await v.play();
+    $('faceStartBtn').classList.add('hidden'); $('faceStopBtn').classList.remove('hidden');
+    $('faceStatus').textContent='Scanning… look at the camera.';
+    var canvas=$('faceCanvas');
+    faceTimer=setInterval(function(){faceTick(v,canvas);},1200);
+  }catch(e){$('faceStatus').textContent='Camera error: '+e.message;}
+}
+async function faceTick(v,canvas){
+  if(!faceStream)return;
+  canvas.width=v.videoWidth; canvas.height=v.videoHeight;
+  var det=await faceapi.detectSingleFace(v,new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+  var ctx=canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!det)return;
+  var box=det.detection.box;
+  var best=null,bestDist=99;
+  for(var i=0;i<S.faceData.length;i++){
+    var d=euclidean(det.descriptor,S.faceData[i].descriptor);
+    if(d<bestDist){bestDist=d;best=S.faceData[i];}
+  }
+  var matched=best&&bestDist<=CONFIG.faceTolerance;
+  ctx.lineWidth=3; ctx.strokeStyle=matched?'#22c55e':'#ef4444';
+  ctx.strokeRect(box.x,box.y,box.width,box.height);
+  ctx.fillStyle=matched?'#22c55e':'#ef4444'; ctx.font='16px sans-serif';
+  ctx.fillText(matched?best.name:'Unknown',box.x,box.y>18?box.y-6:box.y+18);
+  if(matched&&cooldownOk('face:'+best.studentId)){
+    var r=await api('markAttendance',{method:'Face',studentId:best.studentId});
+    if(r.ok&&!r.duplicate){kioskLog(best.name+' ('+best.studentId+')',r.status);toast(best.name+' — '+r.status,r.status==='Present'?'ok':'warn');}
+    else if(r.duplicate){kioskLog(best.name,'info',' <span class="badge no">Already marked</span>');}
+  }
+}
+function euclidean(a,b){var s=0;for(var i=0;i<a.length;i++){var d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);}
+function stopFaceKiosk(){
+  if(faceTimer){clearInterval(faceTimer);faceTimer=null;}
+  if(faceStream){faceStream.getTracks().forEach(function(t){t.stop();});faceStream=null;}
+  var v=$('faceVideo'); if(v)v.srcObject=null;
+  var c=$('faceCanvas'); if(c){var ctx=c.getContext('2d');ctx&&ctx.clearRect(0,0,c.width,c.height);}
+  $('faceStartBtn')&&$('faceStartBtn').classList.remove('hidden'); $('faceStopBtn')&&$('faceStopBtn').classList.add('hidden');
+}
+
+/* ============================================================
+   SESSIONS
+   ============================================================ */
+async function createSession(){
+  var className=$('sessClass').value.trim()||'Class';
+  var lateAfter=$('sessLate').value.trim()||S.settings.lateThreshold||'09:15';
+  var durationMin=parseInt($('sessDur').value,10)||60;
+  var r=await api('createSession',{className:className,lateAfter:lateAfter,durationMin:durationMin});
+  if(!r.ok){toast(r.error||'Failed','err');return;}
+  S.activeSession=r.session; renderSessionQR(); loadSessions(); toast('Session created','ok');
+}
+function renderSessionQR(){
+  if(!S.activeSession){hide('sessionQrBox');show('noSession');return;}
+  hide('noSession'); show('sessionQrBox');
+  $('sessionQR').innerHTML='';
+  new QRCode($('sessionQR'),{text:S.activeSession.token,width:240,height:240,correctLevel:QRCode.CorrectLevel.M});
+  $('sessionQrMeta').innerHTML='<b>'+esc(S.activeSession.className)+'</b><br><span class="note">Late after '+esc(S.activeSession.lateAfter)+' · expires '+new Date(S.activeSession.expiresAt).toLocaleTimeString()+'</span>';
+}
+function fullscreenSessionQR(){
+  if(!S.activeSession)return;
+  var w=window.open('','_blank');
+  w.document.write('<html><head><title>'+esc(S.activeSession.className)+'</title><style>body{background:#0f172a;color:#fff;font-family:sans-serif;display:grid;place-items:center;height:100vh;margin:0}.box{background:#fff;padding:30px;border-radius:20px}h1{margin:20px 0 0}</style><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script></head><body><div style="text-align:center"><div class="box" id="q"></div><h1 style="color:#fff">'+esc(S.activeSession.className)+'</h1><p>Scan to mark attendance</p></div><script>new QRCode(document.getElementById("q"),{text:"'+S.activeSession.token+'",width:360,height:360});<\/script></body></html>');
+  w.document.close();
+}
+async function loadSessions(){
+  var r=await api('getSessions'); var list=(r&&r.sessions)||[];
+  var active=list.find(function(s){return s.active;});
+  if(active&&(!S.activeSession||S.activeSession.sessionId!==active.sessionId)){S.activeSession={sessionId:active.sessionId,token:active.token,className:active.className,lateAfter:active.lateAfter,expiresAt:active.expiresAt};}
+  if(!active)S.activeSession=null;
+  renderSessionQR();
+  $('sessionsBody').innerHTML=list.length?list.map(function(s){
+    return '<tr><td>'+esc(s.sessionId)+'</td><td>'+esc(s.className)+'</td><td>'+esc(s.date)+'</td><td>'+esc(s.startTime)+'</td><td>'+esc(s.lateAfter)+'</td>'+
+      '<td>'+(s.active?'<span class="badge present">Active</span>':'<span class="badge absent">Ended</span>')+'</td>'+
+      '<td>'+(s.active?'<button class="btn red sm" onclick=\'endSession("'+esc(s.sessionId)+'")\'>End</button>':'')+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" class="note" style="padding:18px">No sessions yet.</td></tr>';
+}
+async function endSession(id){
+  var r=await api('endSession',{sessionId:id});
+  if(r.ok){toast('Session ended','ok');if(S.activeSession&&S.activeSession.sessionId===id)S.activeSession=null;loadSessions();}
+  else toast(r.error||'Failed','err');
+}
+
+/* ============================================================
+   ADMIN ATTENDANCE + REPORTS
+   ============================================================ */
+async function loadAttendance(){
+  var date=$('attDate').value;
+  var r=await api('getAllAttendance',date?{date:date}:{});
+  S.attendance=(r&&r.records)||[]; renderAttendance();
+}
+function renderAttendance(){
+  var q=($('attSearch').value||'').toLowerCase();
+  var list=S.attendance.filter(function(a){return (a.name+' '+a.studentId).toLowerCase().indexOf(q)>-1;});
+  var present=list.filter(function(a){return a.status==='Present';}).length;
+  var late=list.filter(function(a){return a.status==='Late';}).length;
+  $('attSummary').innerHTML=[
+    card('acc','📝',list.length,'Records'),
+    card('good','✅',present,'Present'),
+    card('warn','⏰',late,'Late'),
+    card('info','📊',(list.length?Math.round(present/list.length*100):0)+'%','Present %')
+  ].join('');
+  $('attendanceBody').innerHTML=list.length?list.map(function(a){
+    return '<tr><td>'+esc(a.date)+'</td><td>'+esc(a.time)+'</td><td>'+esc(a.studentId)+'</td><td>'+esc(a.name)+'</td><td>'+statusBadge(a.status)+'</td><td>'+esc(a.method)+'</td><td>'+esc(a.sessionId||'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" class="note" style="padding:18px">No records for this filter.</td></tr>';
+}
+function exportAttendanceCSV(){
+  var rows=[['Date','Time','StudentID','Name','Status','Method','SessionID']];
+  S.attendance.forEach(function(a){rows.push([a.date,a.time,a.studentId,a.name,a.status,a.method,a.sessionId||'']);});
+  var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"';}).join(',');}).join('\n');
+  var blob=new Blob([csv],{type:'text/csv'}); var url=URL.createObjectURL(blob);
+  var a=document.createElement('a'); a.href=url; a.download='attendance_'+($('attDate').value||'all')+'.csv'; a.click(); URL.revokeObjectURL(url);
+}
+function exportAttendancePDF(){
+  var jsPDF=window.jspdf.jsPDF; var doc=new jsPDF();
+  var college=S.settings.collegeName||'College';
+  var date=$('attDate').value||'All dates';
+  doc.setFontSize(16); doc.text(college,14,16);
+  doc.setFontSize(11); doc.setTextColor(100); doc.text('Attendance Report — '+date,14,24);
+  var present=S.attendance.filter(function(a){return a.status==='Present';}).length;
+  var late=S.attendance.filter(function(a){return a.status==='Late';}).length;
+  doc.text('Total: '+S.attendance.length+'   Present: '+present+'   Late: '+late+'   Present %: '+(S.attendance.length?Math.round(present/S.attendance.length*100):0)+'%',14,31);
+  doc.autoTable({
+    startY:37, head:[['Date','Time','ID','Name','Status','Method']],
+    body:S.attendance.map(function(a){return [a.date,a.time,a.studentId,a.name,a.status,a.method];}),
+    styles:{fontSize:9}, headStyles:{fillColor:[99,102,241]}
+  });
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text('Generated '+new Date().toLocaleString(),14,doc.internal.pageSize.height-8);
+  doc.save('attendance_'+date+'.pdf');
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function loadSettingsForm(){
+  $('setCollege').value=S.settings.collegeName||'';
+  $('setLate').value=S.settings.lateThreshold||'09:15';
+  $('setDedupe').value=String(S.settings.dedupePerDay)==='false'?'false':'true';
+}
+async function saveSettings(){
+  var settings={collegeName:$('setCollege').value.trim(),lateThreshold:$('setLate').value.trim()||'09:15',dedupePerDay:$('setDedupe').value};
+  var r=await api('updateSettings',{settings:settings});
+  if(r.ok){S.settings=r.settings;$('appTitle').textContent=S.settings.collegeName||'Smart Attendance';toast('Settings saved','ok');}
+  else toast(r.error||'Failed','err');
+}
+async function changeMyPassword(){
+  var p1=(S.role==='admin'?$('admPass1'):$('sPass1')).value;
+  var p2=(S.role==='admin'?$('admPass2'):$('sPass2')).value;
+  if(!p1||p1.length<4){toast('Password too short','err');return;}
+  if(p1!==p2){toast('Passwords do not match','err');return;}
+  var r=await api('changePassword',{newPasswordHash:await sha256(p1)});
+  if(r.ok){toast('Password updated','ok');(S.role==='admin'?$('admPass1'):$('sPass1')).value='';(S.role==='admin'?$('admPass2'):$('sPass2')).value='';}
+  else toast(r.error||'Failed','err');
+}
+
+/* ============================================================
+   STUDENT VIEWS
+   ============================================================ */
+async function loadStudentOverview(){
+  var r=await api('getMyAttendance',{studentId:S.studentId}); var recs=(r&&r.records)||[];
+  var present=recs.filter(function(a){return a.status==='Present';}).length;
+  var late=recs.filter(function(a){return a.status==='Late';}).length;
+  var total=recs.length;
+  var pct=total?Math.round((present+late)/total*100):0; // marked days; absences aren't logged as rows
+  var attendedPct=total?Math.round(present/total*100):0;
+  $('attRing').style.setProperty('--p',attendedPct);
+  $('attPct').textContent=attendedPct+'%';
+  $('sStatCards').innerHTML=[
+    card('acc','📝',total,'Total Marks'),
+    card('good','✅',present,'Present'),
+    card('warn','⏰',late,'Late'),
+    card('info','📅',recs[0]?recs[0].date:'—','Last Marked')
+  ].join('');
+  $('sRecent').innerHTML=recs.slice(0,10).map(function(a){
+    return '<div class="line"><span>'+esc(a.date)+' · '+esc(a.method)+'</span><span>'+esc(a.time)+' '+statusBadge(a.status)+'</span></div>';
+  }).join('')||'<div class="note">No attendance yet.</div>';
+}
+async function loadStudentRecords(){
+  var r=await api('getMyAttendance',{studentId:S.studentId}); var recs=(r&&r.records)||[];
+  $('sRecordsBody').innerHTML=recs.length?recs.map(function(a){
+    return '<tr><td>'+esc(a.date)+'</td><td>'+esc(a.time)+'</td><td>'+statusBadge(a.status)+'</td><td>'+esc(a.method)+'</td><td>'+esc(a.sessionId||'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="5" class="note" style="padding:18px">No records yet.</td></tr>';
+}
+async function downloadMyReport(){
+  var r=await api('getMyAttendance',{studentId:S.studentId}); var recs=(r&&r.records)||[];
+  var jsPDF=window.jspdf.jsPDF; var doc=new jsPDF();
+  var college=S.settings.collegeName||'College';
+  var present=recs.filter(function(a){return a.status==='Present';}).length;
+  var late=recs.filter(function(a){return a.status==='Late';}).length;
+  var pct=recs.length?Math.round(present/recs.length*100):0;
+  doc.setFontSize(16); doc.text(college,14,16);
+  doc.setFontSize(12); doc.setTextColor(60); doc.text('Attendance Report',14,24);
+  doc.setFontSize(10); doc.setTextColor(90);
+  doc.text('Name: '+S.name,14,33);
+  doc.text('Student ID: '+S.studentId,14,39);
+  doc.text('Email: '+(S.email||''),14,45);
+  doc.text('Total Marked: '+recs.length+'    Present: '+present+'    Late: '+late+'    Present %: '+pct+'%',14,51);
+  doc.autoTable({
+    startY:57, head:[['Date','Time','Status','Method','Session']],
+    body:recs.map(function(a){return [a.date,a.time,a.status,a.method,a.sessionId||'—'];}),
+    styles:{fontSize:9}, headStyles:{fillColor:[6,182,212]}
+  });
+  doc.setFontSize(8); doc.setTextColor(150);
+  doc.text('Generated '+new Date().toLocaleString(),14,doc.internal.pageSize.height-8);
+  doc.save('my_attendance_'+S.studentId+'.pdf');
+}
+
+/* ---- Student session scan ---- */
+var sessionScanner=null;
+async function startSessionScan(){
+  try{
+    sessionScanner=new Html5Qrcode('sessionReader');
+    await sessionScanner.start({facingMode:'environment'},{fps:10,qrbox:{width:240,height:240}},onSessionScan,function(){});
+    $('sScanStart').classList.add('hidden'); $('sScanStop').classList.remove('hidden');
+  }catch(e){toast('Camera error: '+e.message,'err');}
+}
+async function onSessionScan(token){
+  if(!cooldownOk('sess:'+token))return;
+  var res=await api('resolveSession',{sessionToken:token});
+  if(!res.ok||!res.session){toast('Invalid QR','err');return;}
+  if(!res.session.active){toast('This session has ended or expired','warn');return;}
+  var r=await api('markAttendance',{method:'Session',studentId:S.studentId,sessionId:res.session.sessionId});
+  await stopSessionScan();
+  if(!r.ok){$('sScanResult').innerHTML='<div class="msg err">'+esc(r.error)+'</div>';return;}
+  if(r.duplicate){$('sScanResult').innerHTML='<div class="msg ok">Already marked for '+esc(res.session.className)+' ('+esc(r.status)+')</div>';return;}
+  $('sScanResult').innerHTML='<div class="msg ok">✔ Marked '+esc(r.status)+' for '+esc(res.session.className)+' at '+esc(r.time)+'</div>';
+  toast('Marked '+r.status,r.status==='Present'?'ok':'warn');
+}
+async function stopSessionScan(){
+  if(sessionScanner){try{await sessionScanner.stop();sessionScanner.clear();}catch(e){}sessionScanner=null;}
+  $('sScanStart')&&$('sScanStart').classList.remove('hidden'); $('sScanStop')&&$('sScanStop').classList.add('hidden');
+}
+
+/* ============================================================
+   CAMERA CLEANUP
+   ============================================================ */
+function stopAllCameras(){ try{stopQrKiosk();}catch(e){} try{stopFaceKiosk();}catch(e){} try{stopSessionScan();}catch(e){} try{stopEnroll();}catch(e){} }
+window.addEventListener('beforeunload',stopAllCameras);
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(function init(){
+  if(CONFIG.url.indexOf('PASTE_YOUR')===0) show('configBanner');
+  setRole('student');
+  $('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+  $('loginId').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+})();
+</script>
+</body>
+</html>
